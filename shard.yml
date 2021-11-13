@@ -1,0 +1,19 @@
+name: service_runner
+version: 0.1.0
+
+authors:
+  - D. Scott Boggs <scott@tams.tech>
+
+targets:
+  service_runner:
+    main: src/service_runner.cr
+
+crystal: 1.2.1
+
+license: GPLv3
+
+development_dependencies:
+  ameba:
+    github: crystal-ameba/ameba
+    version: ~> 0.14.0
+
