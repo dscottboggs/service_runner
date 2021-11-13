@@ -1,0 +1,23 @@
+[Unit]
+Description=Traefik reverse-proxy container service
+Requires=docker-public-network.service
+
+[Service]
+Type=notify
+
+User=web-services
+
+Environment=service_name=%N
+Environment=service_image=%N:v2.5
+
+ExecStart=/usr/local/bin/service_runner \
+          --publish 80:80 --publish 443:443 \
+          --network public \
+          --volume /var/run/docker.sock:/var/run/docker.sock \
+          --volume /web-services/mounts/%N/traefik.yaml:/traefik.yaml \
+          --volume /web-services/mounts/%N/configs:/config \
+          --env-file /web-services/env/%N.env \
+          --label traefik.enable=false
+
+[Install]
+WantedBy=multi-user.target
