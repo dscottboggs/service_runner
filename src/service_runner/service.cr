@@ -72,7 +72,7 @@ module ServiceRunner
       spawn do # log stdout
         until process.terminated? || io.closed? || stopping?
           if line = io.gets
-            logchannel.info &.emit line: line
+            logchannel.info &.emit line: line, service: name
           end
           Fiber.yield
         end
