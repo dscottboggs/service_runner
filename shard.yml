@@ -12,6 +12,12 @@ crystal: 1.2.1
 
 license: GPLv3
 
+dependencies:
+  xdg:
+    github: dscottboggs/xdg.cr
+  log-influx_backend:
+    github: dscottboggs/crystal-log-influx_backend
+
 development_dependencies:
   ameba:
     github: crystal-ameba/ameba

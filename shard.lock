@@ -4,3 +4,11 @@ shards:
     git: https://github.com/crystal-ameba/ameba.git
     version: 0.14.3
 
+  log-influx_backend:
+    git: https://github.com/dscottboggs/crystal-log-influx_backend.git
+    version: 1.0.0+git.commit.d5b6541f7576a2063c51e7f2b2c93199b5e985ce
+
+  xdg:
+    git: https://github.com/dscottboggs/xdg.cr.git
+    version: 1.1.1
+

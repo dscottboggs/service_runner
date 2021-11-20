@@ -1,41 +1,48 @@
+require "xdg"
 require "./docker"
 require "./notify"
 require "./monitor"
 require "./log"
+require "./service/config"
 
 module ServiceRunner
   class Service
-    property name : String, image : String
+    property config : Config
 
-    def initialize(name = nil, image = nil)
-      @name = name || ENV["service_name"]? || fatal "service name must be specified as $service_name"
-      @image = image || ENV["service_image"]? || fatal "service image name must be specified as $service_image"
+    def initialize(config_file_location = ARGV[0]?)
+      config_file_location ||= ENV["service_config"]? || fatal "no service config received"
+      @config = File.open config_file_location, &->Config.from_yaml(File)
     end
 
+    delegate :image, :name, to: @config
     record Done
-    DockerLogs = ::Log.for "docker-logs.stdout"
-    DockerErr  = ::Log.for "docker-logs.stderr"
-    Log        = ::Log.for "service-runner"
-    property docker : Docker { Docker.new image, name }
-    getter? stopping : Bool = false # belt and suspenders but w/e
+    DockerLogs = ::Log.for "service_runner.docker_logs.stdout"
+    DockerErr  = ::Log.for "service_runner.docker_logs.stderr"
+    Log        = ::Log.for "service_runner.service"
+    property docker : Docker { Docker.new self }
+    # This seemed to be belt and suspenders but turned out to be crucial.
+    getter? stopping : Bool = false
+    # a signal for the logging thread to let the stopping thread (spawned by
+    # the signal trap) that the logging thread is done cleaning up.
     getter done_stopping : Channel(Done) = Channel(Done).new
 
-    def start(create_args = ARGV)
+    def start
       notify.status = "stopping #{name}"
-      docker.stop?
+      docker.stop if docker.container_running?
       notify.status = "removing #{name}"
-      docker.remove?
+      docker.rm if docker.container_exists?
       notify.status = "pulling image #{image}"
-      docker.pull || exit 1
+      docker.pull || fatal "failed to pull image '#{image}'"
       notify.status = "creating container"
-      docker.create create_args do |status|
-        notify.error "docker create exited with code #{status.exit_status}"
+      docker.create do |status|
+        fatal "docker create exited with code #{status.exit_status}"
       end
-      docker.start || exit 2
+      docker.start || fatal "failed to start container"
       Signal::TERM.trap do
         stop
       end
       notify.ready
+      pipe_logs
       Monitoring::Monitor.my self
     end
 
@@ -46,7 +53,7 @@ module ServiceRunner
       notify.status = "stopping #{name}"
       docker.stop
       notify.status = "removing #{name}"
-      docker.remove?
+      docker.rm?
       done_stopping.receive
       exit 0
     end
@@ -58,15 +65,16 @@ module ServiceRunner
         error: :pipe,
         args: ["logs", "-f", name]
       pipe_logs process, process.output, DockerLogs
-      pipe_logs process, process.output, DockerErr
+      pipe_logs process, process.error, DockerErr
     end
 
     def pipe_logs(process, io, logchannel)
       spawn do # log stdout
         until process.terminated? || io.closed? || stopping?
           if line = io.gets
-            logchannel.info &.emit line: line
+            logchannel.info &.emit line: line, service: name
           end
+          Fiber.yield
         end
         Log.debug { "stopping log pipe" }
         # whichever signal caused the loop to end (process term or io closed),
@@ -92,6 +100,7 @@ module ServiceRunner
 
     def fatal(msg)
       Log.fatal { msg }
+      notify.error msg
       exit 1
     end
   end
