@@ -1,0 +1,15 @@
+name: crystal-docs
+image: nginx
+container_create_args:
+  - --volume
+  - /usr/share/doc/crystal/api:/usr/share/nginx/html:ro
+
+# monitor key is optional. Default is to check every 5 cycles whether the
+# container exists.
+monitor:
+  public_network_name: bridge
+  check_http:
+    - path: /index.html
+      expected:
+        body_file: /usr/share/doc/crystal/api/index.html
+      frequency: 30

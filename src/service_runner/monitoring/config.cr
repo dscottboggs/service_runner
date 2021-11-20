@@ -6,11 +6,13 @@ require "http/headers"
 module ServiceRunner
   module Monitoring
     BASE_DIR = Path["/web-services"]
-    Log      = ::Log.for "monitoring"
+    Log      = ::Log.for "service_runner.monitoring"
 
     struct Config
       include YAML::Serializable
       include JSON::Serializable
+
+      def initialize; end
 
       # set to false to cancel a regular check for a container with the same name
       # as the service, or a string representing the name of the service to check
@@ -26,6 +28,8 @@ module ServiceRunner
       # is not available in this mode.
       property check_exe : Array(ExecutionResult) { [] of ExecutionResult }
 
+      property public_network_name : String { "public" }
+
       def self.from_service_config(name : String)
         File.open ENV["tech.tams.monitoring_config"]? || BASE_DIR / "monitor-config" / "#{name}.yml" do |file|
           from_yaml file
@@ -35,6 +39,7 @@ module ServiceRunner
       abstract struct Result
         include YAML::Serializable
         include JSON::Serializable
+
         # how frequently to run the given check.
         property frequency : Int32 = 60
       end
@@ -48,9 +53,17 @@ module ServiceRunner
         property headers : Hash(String, Array(String))?
         property body : String?
         property expected : HTTPResult::Expected = HTTPResult::Expected.new
-        record Expected, status = 200, body : String? = nil {
+        record Expected, body : String? = nil, body_file : String? = nil {
           include JSON::Serializable
           include YAML::Serializable
+
+          property status : Int32 { 200 }
+
+          def initialize; end
+
+          def body_text
+            body || body_file.try &->File.read(String)
+          end
         }
       end
 

@@ -1,0 +1,14 @@
+name: monitoring.influxdb
+image: influxdb:alpine
+container_create_args: [
+  --publish, 8086:8086,
+  --volume, /web-services/mounts/monitoring.influxdb/data:/var/lib/influxdb2,
+  --volume, /web-services/mounts/monitoring.influxdb/config:/etc/influxdb2,
+]
+
+monitor:
+  check_http:
+    - path: /health
+      host: localhost
+      port: 8086
+      frequency: 10

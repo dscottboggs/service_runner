@@ -1,8 +1,10 @@
 require "./notify"
 
 module ServiceRunner
-  record Docker, image : String, name : String do
-    Log = ::Log.for "docker-command-runner"
+  record Docker, service : Service do
+    Log = ::Log.for "service_runner.docker_command_runner"
+
+    delegate :name, :image, to: @service
 
     def runcmd(*args : String, cmd = "docker")
       args = args.to_a
@@ -27,7 +29,7 @@ module ServiceRunner
       runcmd args, cmd: cmd, &.success?
     end
 
-    {% for name in %w[start stop remove] %}
+    {% for name in %w[start stop rm] %}
       def {{name.id}}
         runcmd("{{name.id}}", name) { |status| yield status }
       end
@@ -58,25 +60,24 @@ module ServiceRunner
       end
     end
 
-    def create(args : Array(String))
+    def create
       runcmd build_create_args args
     end
 
-    def create(args : Array(String), &on_error : Process::Status -> T) : Bool | T forall T
-      args = build_create_args args
+    def create(&on_error : Process::Status -> T) : Bool | T forall T
+      args = build_create_args
       runcmd args, &on_error
     end
 
-    def create(*args : String, &on_error : Process::Status -> T) : Bool | T forall T
-      create args.to_a, &on_error
-    end
-
-    def create(*args : String)
-      create args.to_a
-    end
-
-    private def build_create_args(args : Array(String)) : Array(String)
-      ((%w[create --name] << name) + args) << image
+    private def build_create_args : Array(String)
+      pargs = %w[create --name]
+      pargs << name
+      pargs += service.config.container_create_args
+      pargs << image
+      if service_args = service.config.service_args
+        pargs += service_args
+      end
+      pargs
     end
 
     def image_id : String
@@ -84,11 +85,15 @@ module ServiceRunner
     end
 
     def container_id
-      `docker ps --quiet --filter name=#{name}`
+      `docker ps -a --quiet --filter name=#{name}`
     end
 
     def container_exists? : Bool
       !container_id.empty?
+    end
+
+    def container_running?
+      !`docker ps --quiet --filter name=#{name}`.empty?
     end
 
     def image_exists?

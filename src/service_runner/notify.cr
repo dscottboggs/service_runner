@@ -9,7 +9,7 @@ module ServiceRunner
   class Notify
     # :nodoc:
     INSTANCE = Notify.new
-    Log      = ::Log.for "notifier"
+    Log      = ::Log.for "service_runner.notifier"
 
     {% for method in [:notify, :ready, :error, :stopping] %}
     def self.{{method.id}}(*args, **kwargs)
