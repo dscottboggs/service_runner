@@ -1,6 +1,7 @@
 
 docker_args := --user=$(shell id -u) --workdir=/project -v $(shell dirname ${PWD})/log-influx_backend.cr:/log-influx_backend.cr -v $(PWD):/project crystallang/crystal:latest-alpine
-shards_args := -Dpreview_mt --stats --progress
+build_opts ?=
+shards_args := -Dpreview_mt --stats --progress $(build_opts)
 
 all:	devbuild	install
 
@@ -21,7 +22,7 @@ install:	bin/service_runner	/etc/systemd/system/service_runner@.service
 	sudo cp bin/service_runner /usr/local/bin/
 
 clean:
-	rm bin/service_runner
+	-rm bin/service_runner
 
 uninstall:		clean
 	sudo systemctl disable --now service_runner@*.service

@@ -1,14 +1,17 @@
 require "log"
 require "json"
 
-require "log-influx_backend"
-
+{% unless flag? :no_influxdb %}
+  require "log-influx_backend"
+{% end %}
 require "./log/json_formatter"
 require "./config"
 
 module ServiceRunner
-  Log                 = ::Log.for "service_runner"
-  BEFORE_DATABASE_LOG = ::Log::MemoryBackend.new
+  Log = ::Log.for "service_runner"
+  {% unless flag? :no_influxdb %}
+    BEFORE_DATABASE_LOG = ::Log::MemoryBackend.new
+  {% end %}
 
   setup_logs
 
@@ -22,20 +25,22 @@ module ServiceRunner
       log_settings.bind source: "service_runner.docker_logs.stderr",
         level: :debug, backend: stderr
       log_settings.bind source: "service_runner.monitoring.*", level: :warn, backend: stdout
-      if with_influx
-        influx = ::Log::InfluxBackend.new config.influxdb.token,
-          config.influxdb.org, config.influxdb.bucket, config.influxdb.location
-        BEFORE_DATABASE_LOG.close
-        BEFORE_DATABASE_LOG.entries.each { |entry| influx.dispatch entry }
-        BEFORE_DATABASE_LOG.entries.clear
-        log_settings.bind source: "service_runner.*", level: :debug, backend: influx
-      else
-        log_settings.bind source: "service_runner.*", level: :debug, backend: BEFORE_DATABASE_LOG
-        spawn do
-          wait_for_http_connection
-          setup_logs with_influx: true
+      {% unless flag? :no_influxdb %}
+        if with_influx
+          influx = ::Log::InfluxBackend.new config.influxdb.token,
+            config.influxdb.org, config.influxdb.bucket, config.influxdb.location
+          BEFORE_DATABASE_LOG.close
+          BEFORE_DATABASE_LOG.entries.each { |entry| influx.dispatch entry }
+          BEFORE_DATABASE_LOG.entries.clear
+          log_settings.bind source: "service_runner.*", level: :debug, backend: influx
+        else
+          log_settings.bind source: "service_runner.*", level: :debug, backend: BEFORE_DATABASE_LOG
+          spawn do
+            wait_for_http_connection
+            setup_logs with_influx: true
+          end
         end
-      end
+      {% end %}
     end
   end
 

@@ -23,14 +23,16 @@ module ServiceRunner
   class Config
     include YAML::Serializable
 
-    class InfluxDB
-      include YAML::Serializable
-      property token : String
-      property location : String? { "http://localhost:8086/" }
-      property org : String { System.hostname }
-      property bucket : String { "monitoring" }
-    end
+    {% unless flag? :no_influxdb %}
+      class InfluxDB
+        include YAML::Serializable
+        property token : String
+        property location : String? { "http://localhost:8086/" }
+        property org : String { System.hostname }
+        property bucket : String { "monitoring" }
+      end
 
-    property influxdb : InfluxDB
+      property influxdb : InfluxDB
+    {% end %}
   end
 end
