@@ -6,7 +6,6 @@ After=docker.service
 [Service]
 Type=notify
 User=scott
-Environment=LOG_LEVEL=trace
 ExecStart=/usr/local/bin/service_runner /web-services/config/%i.yaml
 
 [Install]

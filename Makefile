@@ -6,14 +6,21 @@ shards_args := -Dpreview_mt --stats --progress $(build_opts)
 all:	devbuild	install
 
 /etc/systemd/system/service_runner@.service:
-	sudo ln -s $(PWD)/service_runner@.service /etc/systemd/system/
+	sudo cp service_runner@.service /etc/systemd/system/
 
 bin/service_runner:
 	make devbuild
 
 prodbuild: clean
+ifeq ($(shell ldd --version 2>&1 | grep -c musl),0)
 	docker run $(docker_args) \
 		shards build --static --release --production $(shards_args)
+else
+	shards build --release --static --production $(shards_args)
+endif
+
+dynamic-prodbuild:	clean
+	shards build --release --production $(shards_args)
 
 devbuild:	clean
 	shards build $(shards_args)
@@ -27,6 +34,7 @@ clean:
 uninstall:		clean
 	sudo systemctl disable --now service_runner@*.service
 	sudo rm /etc/systemd/system/service_runner@.service
+	sudo rm /usr/local/bin/service_runner
 
 start-service:
 	sudo systemctl start service_runner@monitoring.influxdb.service
